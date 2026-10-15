@@ -1,0 +1,232 @@
+rules_version = '2';
+
+// Songe — quem pode ler e escrever o quê.
+//
+// Este arquivo é a única autoridade sobre permissão. O app cliente também
+// verifica as mesmas coisas, mas só para dar mensagem decente ao usuário:
+// se alguém contornar a interface, é aqui que o pedido morre.
+//
+// As três garantias que importam:
+//   1. Ninguém enxerga a parceria de outra pessoa.
+//   2. Cada contribuição só pode ser editada ou apagada por quem a registrou.
+//   3. Ninguém consegue mexer na fatia do parceiro dentro dos totais da meta.
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function uid() {
+      return request.auth.uid;
+    }
+
+    function coupleMembers(coupleId) {
+      return get(/databases/$(database)/documents/couples/$(coupleId)).data.memberIds;
+    }
+
+    function isMember(coupleId) {
+      return signedIn() && uid() in coupleMembers(coupleId);
+    }
+
+    // ─────────────────────────────────────────────────────────
+    // Perfis
+    // ─────────────────────────────────────────────────────────
+    match /users/{userId} {
+      // Você lê o seu perfil, e o do seu parceiro. Mais ninguém.
+      allow get: if signedIn() && (
+        userId == uid() ||
+        (resource.data.coupleId != null && uid() in coupleMembers(resource.data.coupleId))
+      );
+
+      // Sem listagem: não existe "descobrir usuários" neste app.
+      allow list: if false;
+
+      allow create: if signedIn()
+        && userId == uid()
+        && request.resource.data.keys().hasOnly(['name', 'email', 'photoUrl', 'coupleId', 'createdAt'])
+        && request.resource.data.name is string
+        && request.resource.data.name.size() > 0
+        && request.resource.data.coupleId == null;
+
+      allow update: if signedIn()
+        && userId == uid()
+        && request.resource.data.email == resource.data.email
+        && request.resource.data.createdAt == resource.data.createdAt;
+
+      allow delete: if false;
+
+      // Assinaturas de push. O parceiro precisa LER as suas para conseguir
+      // te avisar quando registrar algo — mas só o dono do aparelho escreve.
+      match /pushSubscriptions/{subscriptionId} {
+        allow read: if signedIn() && (
+          userId == uid() ||
+          (resource.data.coupleId != null && uid() in coupleMembers(resource.data.coupleId))
+        );
+
+        allow write: if signedIn() && userId == uid();
+      }
+    }
+
+    // ─────────────────────────────────────────────────────────
+    // Parceria
+    // ─────────────────────────────────────────────────────────
+    match /couples/{coupleId} {
+
+      // A segunda pessoa só entra apresentando um convite válido. A regra
+      // confere o convite no banco — não confia no cliente.
+      function joiningWithValidInvite() {
+        let code = request.resource.data.joinedWithCode;
+        let invitePath = /databases/$(database)/documents/invites/$(code);
+        let before = resource.data.memberIds;
+        let after = request.resource.data.memberIds;
+
+        return code is string
+          && before.size() == 1
+          && after.size() == 2
+          && after[0] == before[0]
+          && after[1] == uid()
+          && exists(invitePath)
+          && get(invitePath).data.coupleId == coupleId
+          && get(invitePath).data.redeemedBy == null
+          && get(invitePath).data.expiresAt > request.time;
+      }
+
+      allow get: if signedIn() && uid() in resource.data.memberIds;
+      allow list: if false;
+
+      // Nasce sempre com uma pessoa só: a que criou.
+      allow create: if signedIn()
+        && request.resource.data.memberIds == [uid()]
+        && request.resource.data.keys().hasOnly(['memberIds', 'createdAt', 'activeInviteCode']);
+
+      allow update: if signedIn() && (
+        // Membro mexendo em qualquer coisa que não seja a lista de membros.
+        (uid() in resource.data.memberIds
+          && request.resource.data.memberIds == resource.data.memberIds)
+        ||
+        // Ou a segunda pessoa entrando com um convite válido.
+        joiningWithValidInvite()
+      );
+
+      // Uma parceria com duas pessoas é para sempre. Mas a parceria solitária
+      // que o app cria sozinho para quem acabou de se cadastrar precisa poder
+      // ser descartada: sem isso, a segunda pessoa nunca conseguiria entrar
+      // na parceria da primeira, porque já estaria presa na sua própria.
+      allow delete: if signedIn() && resource.data.memberIds == [uid()];
+
+      // ── Metas ──────────────────────────────────────────────
+      match /goals/{goalId} {
+
+        // O coração da regra: os totais são derivados, não declarados.
+        function totalsAreHonest() {
+          let members = coupleMembers(coupleId);
+          let hasPartner = members.size() > 1;
+          let other = hasPartner ? (members[0] == uid() ? members[1] : members[0]) : uid();
+          let after = request.resource.data;
+
+          return
+            // A fatia do parceiro é intocável por quem não é o parceiro.
+            (!hasPartner || after.perUserCents.get(other, 0) == resource.data.perUserCents.get(other, 0))
+            // E o total é sempre exatamente a soma das duas fatias.
+            && after.totalCents == after.perUserCents.get(members[0], 0)
+                 + (hasPartner ? after.perUserCents.get(members[1], 0) : 0)
+            && after.totalCents >= 0;
+        }
+
+        allow read: if isMember(coupleId);
+
+        allow create: if isMember(coupleId)
+          && request.resource.data.createdBy == uid()
+          && request.resource.data.title is string
+          && request.resource.data.title.size() > 0
+          && request.resource.data.targetCents is int
+          && request.resource.data.targetCents > 0
+          && request.resource.data.totalCents == 0
+          && request.resource.data.contributionCount == 0;
+
+        allow update: if isMember(coupleId)
+          && totalsAreHonest()
+          && request.resource.data.targetCents is int
+          && request.resource.data.targetCents > 0
+          && request.resource.data.createdBy == resource.data.createdBy
+          && request.resource.data.createdAt == resource.data.createdAt;
+
+        allow delete: if isMember(coupleId);
+      }
+
+      // ── Contribuições ──────────────────────────────────────
+      // Coleção plana com goalId como campo: o dashboard precisa de todas as
+      // contribuições do casal de uma vez, e aninhá-las em cada meta exigiria
+      // consulta de grupo de coleção com uma segunda camada de regras.
+      match /contributions/{contributionId} {
+        allow read: if isMember(coupleId);
+
+        allow create: if isMember(coupleId)
+          // Ninguém registra em nome do parceiro.
+          && request.resource.data.userId == uid()
+          && request.resource.data.amountCents is int
+          && request.resource.data.amountCents > 0
+          && request.resource.data.editedAt == null
+          && exists(/databases/$(database)/documents/couples/$(coupleId)/goals/$(request.resource.data.goalId));
+
+        // Cada um gerencia apenas o que registrou.
+        allow update: if isMember(coupleId)
+          && resource.data.userId == uid()
+          && request.resource.data.userId == uid()
+          && request.resource.data.goalId == resource.data.goalId
+          && request.resource.data.amountCents is int
+          && request.resource.data.amountCents > 0;
+
+        allow delete: if isMember(coupleId) && resource.data.userId == uid();
+      }
+
+      // ── Novidades ──────────────────────────────────────────
+      match /activities/{activityId} {
+        allow read: if isMember(coupleId);
+
+        allow create: if isMember(coupleId)
+          && request.resource.data.actorId == uid();
+
+        // A única edição possível é marcar como lida — e só somando alguém
+        // à lista, nunca removendo.
+        allow update: if isMember(coupleId)
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['readBy'])
+          && request.resource.data.readBy.hasAll(resource.data.readBy);
+
+        // Apagadas junto com a meta a que pertencem.
+        allow delete: if isMember(coupleId);
+      }
+    }
+
+    // ─────────────────────────────────────────────────────────
+    // Convites
+    // ─────────────────────────────────────────────────────────
+    match /invites/{code} {
+      // Quem tem o código lê o convite — é assim que se entra na parceria.
+      // O código tem 6 caracteres de um alfabeto de 31 (~900 milhões de
+      // combinações), vale 48 horas e serve uma vez só.
+      allow get: if signedIn();
+      allow list: if false;
+
+      allow create: if signedIn()
+        && request.resource.data.createdBy == uid()
+        && isMember(request.resource.data.coupleId)
+        && request.resource.data.redeemedBy == null;
+
+      // Resgatar é a única edição: marcar-se como quem usou.
+      allow update: if signedIn()
+        && resource.data.redeemedBy == null
+        && request.resource.data.redeemedBy == uid()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['redeemedBy']);
+
+      allow delete: if signedIn() && isMember(resource.data.coupleId);
+    }
+
+    // Qualquer caminho não previsto acima está fechado.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

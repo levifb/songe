@@ -1,0 +1,215 @@
+@import "tailwindcss";
+
+@import "@fontsource-variable/fraunces/index.css";
+@import "@fontsource-variable/inter/index.css";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* ───────────────────────────────────────────────────────────
+   SONGE — Design System
+   Identidade: "Neve & Brasa"
+   Base fria de neve alpina, aquecida por luz âmbar.
+   ─────────────────────────────────────────────────────────── */
+
+@theme {
+  /* Neutros frios — neve, pedra, sombra alpina */
+  --color-alpine-50:  #F2F5F8;
+  --color-alpine-100: #E5EBF2;
+  --color-alpine-200: #CFD9E5;
+  --color-alpine-300: #AEBDCE;
+  --color-alpine-400: #8496AC;
+  --color-alpine-500: #62748C;
+  --color-alpine-600: #4A5A70;
+  --color-alpine-700: #3A4759;
+  --color-alpine-800: #2A3442;
+  --color-alpine-900: #1C232D;
+  --color-alpine-950: #121820;
+
+  /* Brasa — luz de abajur, janela de café no inverno */
+  --color-ember-50:  #FDF6EC;
+  --color-ember-100: #FAEAD2;
+  --color-ember-200: #F4D3A3;
+  --color-ember-300: #EDB86F;
+  --color-ember-400: #E39F45;
+  --color-ember-500: #D4862A;
+  --color-ember-600: #B76B1D;
+  --color-ember-700: #91521A;
+  --color-ember-800: #6E3F19;
+  --color-ember-900: #4E2D14;
+
+  /* Pinho — a segunda voz do casal, e a mata sob a neve */
+  --color-pine-50:  #EEF5F2;
+  --color-pine-100: #D9E9E3;
+  --color-pine-200: #B4D2C8;
+  --color-pine-300: #85B4A6;
+  --color-pine-400: #5A9385;
+  --color-pine-500: #3F7A6B;
+  --color-pine-600: #2F6255;
+  --color-pine-700: #274E45;
+  --color-pine-800: #213E38;
+  --color-pine-900: #1B302C;
+
+  --font-display: "Fraunces Variable", "Iowan Old Style", Georgia, serif;
+  --font-sans: "Inter Variable", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+
+  --radius-xs: 0.5rem;
+  --radius-sm: 0.75rem;
+  --radius-md: 1rem;
+  --radius-lg: 1.375rem;
+  --radius-xl: 1.75rem;
+  --radius-2xl: 2.125rem;
+
+  /* Curvas: nada linear, nada elástico demais. */
+  --ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-in-out-soft: cubic-bezier(0.65, 0, 0.35, 1);
+}
+
+/* Camada semântica — troca inteira no modo escuro */
+@theme inline {
+  --color-ground: var(--ground);
+  --color-ground-2: var(--ground-2);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-line: var(--line);
+  --color-line-soft: var(--line-soft);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-ink-3: var(--ink-3);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-soft: var(--accent-soft);
+  --color-on-accent: var(--on-accent);
+  --color-mine: var(--mine);
+  --color-hers: var(--hers);
+  --color-danger: var(--danger);
+
+  --shadow-soft: var(--sh-soft);
+  --shadow-lift: var(--sh-lift);
+  --shadow-float: var(--sh-float);
+}
+
+:root {
+  color-scheme: light;
+
+  --ground:    #F4F6F9;
+  --ground-2:  #EAEEF4;
+  --surface:   #FFFFFF;
+  --surface-2: #F7F9FB;
+  --line:      #DFE5ED;
+  --line-soft: #EDF1F6;
+  --ink:       #1C232D;
+  --ink-2:     #4A5A70;
+  --ink-3:     #8496AC;
+  --accent:       #B76B1D;
+  --accent-hover: #91521A;
+  --accent-soft:  #FAEAD2;
+  --on-accent:    #FFFFFF;
+  --mine: #B76B1D;
+  --hers: #2F6255;
+  --danger: #A93B33;
+
+  /* Sombras com pigmento quente: a luz do app é âmbar, não cinza. */
+  --sh-soft:  0 1px 2px rgba(72, 48, 24, 0.045), 0 3px 10px rgba(72, 48, 24, 0.045);
+  --sh-lift:  0 2px 4px rgba(72, 48, 24, 0.05), 0 12px 26px -8px rgba(72, 48, 24, 0.11);
+  --sh-float: 0 6px 16px -4px rgba(72, 48, 24, 0.13), 0 26px 50px -14px rgba(72, 48, 24, 0.18);
+}
+
+.dark {
+  color-scheme: dark;
+
+  --ground:    #0E1319;
+  --ground-2:  #121820;
+  --surface:   #181F29;
+  --surface-2: #1F2732;
+  --line:      #2A3442;
+  --line-soft: #212934;
+  --ink:       #E9EEF4;
+  --ink-2:     #A3B2C4;
+  --ink-3:     #6F8098;
+  --accent:       #EDB86F;
+  --accent-hover: #F4D3A3;
+  --accent-soft:  #2E2416;
+  --on-accent:    #21160A;
+  --mine: #EDB86F;
+  --hers: #85B4A6;
+  --danger: #E08A80;
+
+  --sh-soft:  0 1px 2px rgba(0, 0, 0, 0.4), 0 3px 10px rgba(0, 0, 0, 0.3);
+  --sh-lift:  0 2px 6px rgba(0, 0, 0, 0.45), 0 14px 30px -8px rgba(0, 0, 0, 0.5);
+  --sh-float: 0 8px 20px -4px rgba(0, 0, 0, 0.55), 0 30px 60px -16px rgba(0, 0, 0, 0.6);
+}
+
+@layer base {
+  * {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  html {
+    background: var(--ground);
+    /* Sem zoom acidental no duplo-toque, sem bounce horizontal. */
+    touch-action: manipulation;
+    overscroll-behavior-y: none;
+    /* Sem isto, abrir uma folha esconde a barra de rolagem e a tela inteira
+       pula alguns pixels para o lado. */
+    scrollbar-gutter: stable;
+  }
+
+  body {
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--font-sans);
+    font-synthesis-weight: none;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  /* Fraunces respira melhor com o eixo óptico alto e um toque de SOFT. */
+  .font-display {
+    font-family: var(--font-display);
+    font-variation-settings: "SOFT" 24, "WONK" 0, "opsz" 96;
+    letter-spacing: -0.015em;
+  }
+
+  ::selection {
+    background: var(--accent-soft);
+    color: var(--ink);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+
+  input, textarea, select, button {
+    font-family: inherit;
+    font-size: inherit;
+  }
+
+  /* iOS dá zoom em qualquer input abaixo de 16px. */
+  input, textarea, select {
+    font-size: max(16px, 1em);
+  }
+}
+
+@utility numeric {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+}
+
+@utility no-scrollbar {
+  scrollbar-width: none;
+  &::-webkit-scrollbar { display: none; }
+}
+
+/* Safe areas — notch, Dynamic Island, barra de gestos */
+@utility pt-safe { padding-top: env(safe-area-inset-top); }
+@utility pb-safe { padding-bottom: env(safe-area-inset-bottom); }
+@utility mt-safe { margin-top: env(safe-area-inset-top); }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

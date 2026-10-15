@@ -1,0 +1,45 @@
+rules_version = '2';
+
+// Songe — quem pode subir e ler imagens.
+//
+// Aviso honesto sobre privacidade: o `getDownloadURL` do Firebase devolve uma
+// URL com token que funciona para qualquer pessoa que a receba, sem passar por
+// estas regras. Na prática as fotos ficam protegidas por serem inalcançáveis
+// (a URL tem um token aleatório e nunca sai do app), mas não por criptografia.
+// Para duas pessoas isso é suficiente; se um dia deixar de ser, o caminho é
+// revogar os tokens no console e servir as imagens por download autenticado.
+
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isMember(coupleId) {
+      return signedIn() && request.auth.uid in
+        firestore.get(/databases/(default)/documents/couples/$(coupleId)).data.memberIds;
+    }
+
+    // O app já comprime para ~150 KB antes de subir; 3 MB é folga de sobra
+    // e ainda impede que alguém use o bucket como disco.
+    function validImage() {
+      return request.resource.size < 3 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+    }
+
+    match /couples/{coupleId}/photos/{photoId} {
+      allow read: if isMember(coupleId);
+      allow write: if isMember(coupleId) && validImage();
+    }
+
+    match /users/{userId}/avatar/{photoId} {
+      allow read: if signedIn();
+      allow write: if signedIn() && request.auth.uid == userId && validImage();
+    }
+
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}
